@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3456;
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'docs')));
 
 // Database
 const DB_DIR = 'H:\\跨境业务系统数据库';
