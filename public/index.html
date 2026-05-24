@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>员工每日任务完成记录</title>
+<style>
+  :root {
+    --bg: #f0f2f5; --card: #fff; --primary: #4f6ef7; --success: #22c55e;
+    --danger: #ef4444; --text: #1e293b; --text2: #64748b; --border: #e2e8f0;
+    --shadow: 0 1px 3px rgba(0,0,0,.08); --radius: 12px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+  .app { max-width:1100px; margin:0 auto; padding:20px; }
+
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+  .header h1 { font-size:1.5rem; font-weight:700; display:flex; align-items:center; gap:8px; }
+  .header-right { display:flex; align-items:center; gap:12px; font-size:.8rem; color:var(--text2); }
+  .online-dot { width:8px; height:8px; border-radius:50%; background:var(--success); display:inline-block; margin-right:4px; }
+
+  .emp-bar { display:flex; align-items:center; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .emp-bar .emp-btn { padding:6px 16px; border:1px solid var(--border); border-radius:20px; background:var(--card); cursor:pointer; font-size:.85rem; transition:all .15s; }
+  .emp-bar .emp-btn:hover { border-color:var(--primary); color:var(--primary); }
+  .emp-bar .emp-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+  .emp-bar .emp-add { padding:6px 12px; border:1px dashed var(--border); border-radius:20px; background:transparent; cursor:pointer; font-size:.85rem; color:var(--text2); }
+  .emp-bar .emp-add:hover { border-color:var(--primary); color:var(--primary); }
+
+  .date-bar { display:flex; align-items:center; gap:12px; margin-bottom:16px; background:var(--card); padding:10px 16px; border-radius:var(--radius); border:1px solid var(--border); box-shadow:var(--shadow); }
+  .date-bar .date-label { font-weight:600; font-size:1rem; }
+  .date-bar .date-nav { display:flex; gap:6px; margin-left:auto; }
+  .date-bar button { padding:4px 12px; border:1px solid var(--border); border-radius:6px; background:var(--card); cursor:pointer; font-size:.85rem; transition:all .15s; }
+  .date-bar button:hover { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+  .tabs { display:flex; gap:2px; background:var(--card); border-radius:var(--radius) var(--radius) 0 0; border:1px solid var(--border); border-bottom:none; overflow:hidden; }
+  .tab { padding:10px 20px; cursor:pointer; font-size:.9rem; font-weight:500; color:var(--text2); border:none; border-bottom:2px solid transparent; background:transparent; transition:all .15s; }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+  .card { background:var(--card); border:1px solid var(--border); border-radius:0 0 var(--radius) var(--radius); box-shadow:var(--shadow); padding:20px; }
+
+  table { width:100%; border-collapse:collapse; font-size:.9rem; }
+  th { text-align:left; padding:10px 12px; color:var(--text2); font-weight:600; font-size:.8rem; text-transform:uppercase; border-bottom:2px solid var(--border); }
+  td { padding:10px 12px; border-bottom:1px solid var(--border); }
+  tr:last-child td { border-bottom:none; }
+  tr.completed { background:#f0fdf4; }
+  tr.completed td { color:var(--text2); }
+
+  .cb-wrap { display:flex; align-items:center; justify-content:center; }
+  .cb-wrap input[type="checkbox"] { width:22px; height:22px; cursor:pointer; accent-color:var(--success); }
+  .score-badge { display:inline-block; padding:2px 10px; border-radius:12px; background:#eef2ff; color:var(--primary); font-weight:600; font-size:.85rem; }
+  .earned-badge { display:inline-block; padding:2px 10px; border-radius:12px; background:#dcfce7; color:#16a34a; font-weight:600; font-size:.85rem; min-width:40px; text-align:center; }
+
+  .summary-row td { font-weight:700; border-top:2px solid var(--border); background:#f8fafc; }
+  .summary-t { color:var(--primary); font-size:1.1rem; }
+
+  .dash-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin-bottom:20px; }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px 20px; box-shadow:var(--shadow); text-align:center; }
+  .stat-card .label { font-size:.8rem; color:var(--text2); margin-bottom:4px; }
+  .stat-card .value { font-size:2rem; font-weight:700; color:var(--primary); }
+  .stat-card .sub { font-size:.75rem; color:var(--text2); margin-top:2px; }
+
+  .history-list { max-height:450px; overflow-y:auto; }
+  .history-item { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .history-item:hover { background:#f8fafc; }
+  .history-date { font-weight:500; }
+  .history-score { font-weight:700; color:var(--primary); }
+
+  .task-form { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:flex-end; }
+  .task-form input { padding:8px 12px; border:1px solid var(--border); border-radius:6px; font-size:.9rem; }
+  .task-form input[type="text"] { flex:2; min-width:200px; }
+  .task-form input[type="number"] { width:80px; text-align:center; }
+
+  .btn { padding:8px 16px; border:none; border-radius:6px; cursor:pointer; font-size:.85rem; font-weight:500; transition:all .15s; }
+  .btn-p { background:var(--primary); color:#fff; }
+  .btn-p:hover { opacity:.9; }
+  .btn-d { background:var(--danger); color:#fff; }
+  .btn-o { background:transparent; border:1px solid var(--border); }
+  .btn-o:hover { background:#f1f5f9; }
+  .btn-sm { padding:3px 10px; font-size:.75rem; }
+
+  .task-list .task-item { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid var(--border); }
+  .task-list .task-item:last-child { border-bottom:none; }
+
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:100; justify-content:center; align-items:center; }
+  .modal-overlay.show { display:flex; }
+  .modal { background:var(--card); border-radius:var(--radius); padding:24px; min-width:360px; max-width:90vw; box-shadow:0 4px 20px rgba(0,0,0,.15); }
+  .modal h3 { margin-bottom:16px; }
+  .modal .actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+
+  .toast { position:fixed; top:20px; right:20px; z-index:200; background:var(--success); color:#fff; padding:10px 20px; border-radius:8px; font-size:.9rem; box-shadow:0 4px 12px rgba(0,0,0,.15); transform:translateX(120%); transition:transform .3s; }
+  .toast.show { transform:translateX(0); }
+
+  .loading { text-align:center; padding:40px; color:var(--text2); }
+  .spinner { display:inline-block; width:24px; height:24px; border:3px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .6s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .tool-bar { display:flex; gap:8px; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); flex-wrap:wrap; }
+  .tool-bar button { font-size:.8rem; }
+
+  .reset-info { font-size:.75rem; color:var(--text2); background:#f1f5f9; padding:3px 10px; border-radius:12px; }
+
+  @media (max-width:640px) {
+    .header { flex-direction:column; align-items:flex-start; }
+    .dash-grid { grid-template-columns:1fr 1fr; }
+    .task-form { flex-direction:column; }
+    .task-form input[type="text"] { width:100%; }
+    .emp-bar { overflow-x:auto; flex-wrap:nowrap; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>📋 员工每日任务完成记录</h1>
+    <div class="header-right">
+      <span><span class="online-dot"></span>局域网共享版</span>
+      <span class="reset-info">🕛 每日零点自动更新</span>
+    </div>
+  </div>
+
+  <!-- Employee bar -->
+  <div class="emp-bar" id="empBar"></div>
+
+  <!-- Date bar -->
+  <div class="date-bar">
+    <span class="date-label" id="dateLabel"></span>
+    <div class="date-nav">
+      <button onclick="navDate(-1)">◀ 前一天</button>
+      <button onclick="navDate(0)">📅 今天</button>
+      <button onclick="navDate(1)">后一天 ▶</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('checkin')">✅ 今日打卡</button>
+    <button class="tab" onclick="switchTab('history')">📊 历史记录</button>
+    <button class="tab" onclick="switchTab('dashboard')">📈 看板</button>
+    <button class="tab" onclick="switchTab('tasks')">⚙️ 任务管理</button>
+  </div>
+
+  <div class="card" id="cardContent"></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<!-- Employee add modal -->
+<div class="modal-overlay" id="empModal">
+  <div class="modal">
+    <h3>👥 员工管理</h3>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input type="text" id="newEmpName" placeholder="输入员工姓名" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:.9rem;">
+      <button class="btn btn-p" onclick="addEmployee()">添加</button>
+    </div>
+    <div id="empList" style="max-height:200px;overflow-y:auto;"></div>
+    <div class="actions">
+      <button class="btn btn-o" onclick="closeEmpModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== STATE ====================
+const API = '';
+const TODAY = () => new Date().toISOString().slice(0,10);
+
+let state = {
+  employees: [],
+  currentEmployee: '',
+  viewingDate: TODAY(),
+  currentTab: 'checkin',
+  tasks: [],
+  dashboard: null
+};
+
+// ==================== API HELPERS ====================
+async function api(url, opts = {}) {
+  try {
+    const res = await fetch(API + url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } catch (e) {
+    showToast('❌ ' + e.message);
+    throw e;
+  }
+}
+
+// ==================== INIT ====================
+async function init() {
+  showLoading();
+  try {
+    const emps = await api('/api/employees');
+    state.employees = emps;
+    if (!emps.includes(state.currentEmployee)) state.currentEmployee = emps[0] || '';
+    
+    const tasks = await api('/api/tasks');
+    state.tasks = tasks;
+    
+    await loadDashboard();
+    render();
+  } catch (e) {
+    document.getElementById('cardContent').innerHTML = '<p style="text-align:center;color:var(--danger);padding:40px;">⚠️ 无法连接到服务器，请确认后端已启动</p>';
+  }
+}
+
+async function loadDashboard() {
+  try { state.dashboard = await api('/api/dashboard'); } catch(e) {}
+}
+
+// ==================== RENDER ====================
+function render() {
+  renderEmpBar();
+  document.getElementById('dateLabel').textContent = `📆 ${state.viewingDate} ${state.viewingDate === TODAY() ? '(今天)' : ''}`;
+  const c = document.getElementById('cardContent');
+  switch(state.currentTab) {
+    case 'checkin': renderCheckin(c); break;
+    case 'history': renderHistory(c); break;
+    case 'dashboard': renderDashboard(c); break;
+    case 'tasks': renderTaskMgmt(c); break;
+  }
+}
+
+function renderEmpBar() {
+  const bar = document.getElementById('empBar');
+  bar.innerHTML = state.employees.map(e =>
+    `<button class="emp-btn ${e===state.currentEmployee?'active':''}" onclick="selectEmployee('${escHtml(e)}')">👤 ${escHtml(e)}</button>`
+  ).join('') + `<button class="emp-add" onclick="showEmpModal()">＋ 管理员工</button>`;
+}
+
+// ==================== CHECKIN ====================
+async function renderCheckin(container) {
+  showLoading();
+  try {
+    const data = await api(`/api/records/${state.viewingDate}`);
+    const emp = data.find(d => d.employee === state.currentEmployee);
+    if (!emp) { container.innerHTML = '<p style="text-align:center;padding:40px;">暂无数据</p>'; return; }
+    
+    const isToday = state.viewingDate === TODAY();
+    let html = '<table><thead><tr><th style="width:50px;">序号</th><th>任务名称</th><th style="width:80px;text-align:center;">分值</th><th style="width:80px;text-align:center;">完成</th><th style="width:80px;text-align:center;">得分</th></tr></thead><tbody>';
+    
+    emp.tasks.forEach((t, i) => {
+      const done = t.completed;
+      html += `<tr class="${done?'completed':''}">
+        <td>${i+1}</td>
+        <td>${done ? '<s>'+escHtml(t.name)+'</s>' : escHtml(t.name)}</td>
+        <td style="text-align:center;"><span class="score-badge">${t.score}</span></td>
+        <td style="text-align:center;">
+          <div class="cb-wrap">
+            <input type="checkbox" ${done?'checked':''} ${isToday?'':'disabled'}
+                   onchange="toggleTask(${t.taskId}, this.checked)">
+          </div>
+        </td>
+        <td style="text-align:center;"><span class="earned-badge">${done?t.score:0}</span></td>
+      </tr>`;
+    });
+
+    html += `<tr class="summary-row">
+      <td colspan="2">📊 ${escHtml(emp.employee)} 汇总</td>
+      <td style="text-align:center;">${emp.totalScore}</td>
+      <td style="text-align:center;">${emp.completedCount}/${emp.totalCount}</td>
+      <td style="text-align:center;"><span class="summary-t">${emp.earned}</span></td>
+    </tr></tbody></table>`;
+
+    if (isToday) {
+      html += `<p style="margin-top:12px;font-size:.8rem;color:var(--text2);text-align:center;">得分: <strong style="color:var(--primary);">${emp.earned}</strong> / ${emp.totalScore} · 完成率: <strong>${emp.totalScore>0?Math.round(emp.earned/emp.totalScore*100):0}%</strong></p>`;
+    }
+
+    // Show all employees summary for today
+    if (data.length > 1) {
+      html += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);"><p style="font-size:.8rem;color:var(--text2);margin-bottom:8px;">📋 全员今日概况</p>';
+      html += '<div style="display:flex;gap:12px;flex-wrap:wrap;">';
+      data.forEach(d => {
+        html += `<div style="background:#f8fafc;padding:8px 14px;border-radius:8px;font-size:.85rem;">
+          <strong>${escHtml(d.employee)}</strong>: ${d.earned}/${d.totalScore} (${d.totalScore>0?Math.round(d.earned/d.totalScore*100):0}%)
+        </div>`;
+      });
+      html += '</div></div>';
+    }
+
+    container.innerHTML = html;
+  } catch(e) { container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:40px;">加载失败</p>'; }
+}
+
+async function toggleTask(taskId, checked) {
+  try {
+    await api(`/api/records/${state.viewingDate}/toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ employee: state.currentEmployee, taskId })
+    });
+    await loadDashboard();
+    renderCheckin(document.getElementById('cardContent'));
+  } catch(e) {}
+}
+
+// ==================== HISTORY ====================
+async function renderHistory(container) {
+  showLoading();
+  try {
+    const data = await api(`/api/history/${encodeURIComponent(state.currentEmployee)}`);
+    if (!data.history.length) {
+      container.innerHTML = '<p style="text-align:center;color:var(--text2);padding:40px;">暂无历史记录</p>';
+      return;
+    }
+    let html = '<div class="history-list">';
+    data.history.forEach(h => {
+      html += `<div class="history-item" onclick="state.viewingDate='${h.date}';switchTab('checkin');">
+        <span class="history-date">📅 ${h.date}</span>
+        <span>完成 ${h.completed}/${h.total} 项</span>
+        <span>完成率 ${h.pct}%</span>
+        <span class="history-score">${h.earned} 分</span>
+      </div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  } catch(e) { container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:40px;">加载失败</p>'; }
+}
+
+// ==================== DASHBOARD ====================
+async function renderDashboard(container) {
+  showLoading();
+  await loadDashboard();
+  if (!state.dashboard) { container.innerHTML = '<p style="text-align:center;color:var(--danger);padding:40px;">加载失败</p>'; return; }
+
+  const emp = state.dashboard.employees.find(e => e.employee === state.currentEmployee);
+  if (!emp) { container.innerHTML = '<p style="text-align:center;padding:40px;">暂无数据</p>'; return; }
+  
+  const tasks = state.dashboard.tasks;
+  const totalPerTask = state.dashboard.totalPerTask;
+
+  let html = `<div class="dash-grid">
+    <div class="stat-card"><div class="label">📋 今日得分</div><div class="value">${emp.todayEarned}</div><div class="sub">完成 ${emp.todayCompleted}/${emp.todayTotal} 项</div></div>
+    <div class="stat-card"><div class="label">📅 本周得分</div><div class="value">${emp.weekEarned}</div><div class="sub">本周累计</div></div>
+    <div class="stat-card"><div class="label">🗓️ 本月得分</div><div class="value">${emp.monthEarned}</div><div class="sub">本月累计</div></div>
+    <div class="stat-card"><div class="label">🏆 总得分</div><div class="value">${emp.totalEarned}</div><div class="sub">日均 ${emp.avgDaily} 分 · ${emp.totalDays} 天</div></div>
+  </div>`;
+
+  // Task stats
+  html += '<h4 style="margin-bottom:12px;">📊 各任务完成统计</h4><table><thead><tr><th>任务</th><th style="text-align:center;">分值</th><th style="text-align:center;">完成次数</th><th style="text-align:center;">累计得分</th><th style="text-align:center;">完成率</th></tr></thead><tbody>';
+  emp.taskStats.forEach(t => {
+    const pct = emp.totalDays > 0 ? Math.round(t.completedCount / emp.totalDays * 100) : 0;
+    html += `<tr><td>${escHtml(t.name)}</td><td style="text-align:center;"><span class="score-badge">${t.score}</span></td><td style="text-align:center;">${t.completedCount} 次</td><td style="text-align:center;"><span class="earned-badge">${t.totalScore}</span></td><td style="text-align:center;">${pct}%</td></tr>`;
+  });
+  html += '</tbody></table>';
+
+  // Trend
+  html += '<h4 style="margin:20px 0 12px;">📈 近7天趋势</h4><div style="display:flex;gap:4px;align-items:flex-end;height:120px;padding:0 8px;">';
+  emp.trend.forEach(d => {
+    const pct = totalPerTask > 0 ? Math.round(d.earned / totalPerTask * 100) : 0;
+    const height = Math.max(4, pct);
+    const isToday = d.date === TODAY();
+    html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <span style="font-size:.7rem;font-weight:600;color:${isToday?'var(--primary)':'var(--text2)'};">${d.earned}</span>
+      <div style="width:100%;max-width:40px;height:${height}px;background:${isToday?'var(--primary)':'#cbd5e1'};border-radius:4px 4px 0 0;" title="${d.date}: ${d.earned}分"></div>
+      <span style="font-size:.65rem;color:var(--text2);">${d.date.slice(5)}</span></div>`;
+  });
+  html += '</div>';
+
+  // All employees comparison
+  html += '<h4 style="margin:20px 0 12px;">👥 全员对比</h4><table><thead><tr><th>员工</th><th style="text-align:center;">今日</th><th style="text-align:center;">本周</th><th style="text-align:center;">本月</th><th style="text-align:center;">总计</th><th style="text-align:center;">天数</th></tr></thead><tbody>';
+  state.dashboard.employees.forEach(e => {
+    html += `<tr>
+      <td>${e.employee === state.currentEmployee ? '<strong>👤 '+escHtml(e.employee)+'</strong>' : escHtml(e.employee)}</td>
+      <td style="text-align:center;">${e.todayEarned}</td>
+      <td style="text-align:center;">${e.weekEarned}</td>
+      <td style="text-align:center;">${e.monthEarned}</td>
+      <td style="text-align:center;"><strong>${e.totalEarned}</strong></td>
+      <td style="text-align:center;">${e.totalDays}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+
+  container.innerHTML = html;
+}
+
+// ==================== TASK MANAGEMENT ====================
+function renderTaskMgmt(container) {
+  let html = `<div class="task-form">
+    <input type="text" id="newTaskName" placeholder="输入任务名称" maxlength="50">
+    <input type="number" id="newTaskScore" placeholder="分值" min="1" max="100" value="5">
+    <button class="btn btn-p" onclick="addTask()">＋ 添加任务</button>
+  </div>
+  <p style="font-size:.8rem;color:var(--text2);margin-bottom:12px;">💡 任务列表为全员共享，修改后所有人同步生效</p>
+  <div class="task-list">`;
+
+  if (!state.tasks.length) {
+    html += '<p style="text-align:center;color:var(--text2);padding:20px;">暂无任务</p>';
+  } else {
+    state.tasks.forEach(t => {
+      html += `<div class="task-item">
+        <span>📌 ${escHtml(t.name)} — <span class="score-badge">${t.score} 分</span></span>
+        <button class="btn btn-d btn-sm" onclick="deleteTask(${t.id})">删除</button>
+      </div>`;
+    });
+  }
+  html += '</div>';
+
+  html += `<div class="tool-bar">
+    <button class="btn btn-o" onclick="resetToday()">🔄 重置今日打卡 (${escHtml(state.currentEmployee)})</button>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+// ==================== ACTIONS ====================
+async function addTask() {
+  const name = document.getElementById('newTaskName').value.trim();
+  const score = parseInt(document.getElementById('newTaskScore').value) || 5;
+  if (!name) { showToast('请输入任务名称'); return; }
+  await api('/api/tasks', { method:'POST', body:JSON.stringify({name, score:Math.max(1,Math.min(100,score))}) });
+  state.tasks = await api('/api/tasks');
+  await loadDashboard();
+  document.getElementById('newTaskName').value = '';
+  document.getElementById('newTaskScore').value = '5';
+  renderTaskMgmt(document.getElementById('cardContent'));
+  showToast('✅ 任务已添加');
+}
+
+async function deleteTask(id) {
+  if (!confirm('确定删除该任务吗？将同时清除所有员工的该任务历史记录。')) return;
+  await api('/api/tasks/' + id, { method:'DELETE' });
+  state.tasks = await api('/api/tasks');
+  await loadDashboard();
+  renderTaskMgmt(document.getElementById('cardContent'));
+  showToast('🗑️ 任务已删除');
+}
+
+async function resetToday() {
+  if (!confirm(`确定重置 ${state.currentEmployee} 今日所有打卡记录吗？`)) return;
+  await api('/api/reset-today', { method:'POST', body:JSON.stringify({employee:state.currentEmployee}) });
+  await loadDashboard();
+  render();
+  showToast('🔄 今日打卡已重置');
+}
+
+// ==================== NAVIGATION ====================
+function switchTab(tab) {
+  state.currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => {
+    const txt = tab==='checkin'?'打卡':tab==='history'?'历史':tab==='dashboard'?'看板':'管理';
+    if (t.textContent.includes(txt)) t.classList.add('active');
+  });
+  render();
+}
+
+function navDate(offset) {
+  state.viewingDate = offset === 0 ? TODAY() : (() => {
+    const d = new Date(state.viewingDate);
+    d.setDate(d.getDate() + offset);
+    return d.toISOString().slice(0,10);
+  })();
+  render();
+}
+
+function selectEmployee(name) {
+  state.currentEmployee = name;
+  render();
+}
+
+// ==================== EMPLOYEE MANAGEMENT ====================
+function showEmpModal() {
+  document.getElementById('empModal').classList.add('show');
+  renderEmpList();
+}
+function closeEmpModal() { document.getElementById('empModal').classList.remove('show'); }
+
+function renderEmpList() {
+  document.getElementById('empList').innerHTML = state.employees.map(e => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
+      <span>👤 ${escHtml(e)}</span>
+      <button class="btn btn-d btn-sm" onclick="removeEmployee('${escHtml(e)}')">删除</button>
+    </div>
+  `).join('');
+}
+
+async function addEmployee() {
+  const name = document.getElementById('newEmpName').value.trim();
+  if (!name) { showToast('请输入姓名'); return; }
+  try {
+    await api('/api/employees', { method:'POST', body:JSON.stringify({name}) });
+  } catch(e) { showToast('该员工已存在'); return; }
+  state.employees = await api('/api/employees');
+  state.currentEmployee = name;
+  await loadDashboard();
+  document.getElementById('newEmpName').value = '';
+  renderEmpList();
+  closeEmpModal();
+  render();
+  showToast('✅ 员工已添加');
+}
+
+async function removeEmployee(name) {
+  if (state.employees.length <= 1) { showToast('至少保留一个员工'); return; }
+  if (!confirm(`确定删除员工「${name}」及其所有数据吗？`)) return;
+  await api('/api/employees/' + encodeURIComponent(name), { method:'DELETE' });
+  state.employees = await api('/api/employees');
+  if (state.currentEmployee === name) state.currentEmployee = state.employees[0];
+  await loadDashboard();
+  renderEmpList();
+  closeEmpModal();
+  render();
+  showToast('🗑️ 员工已删除');
+}
+
+// ==================== MIDNIGHT REFRESH ====================
+let lastDate = TODAY();
+setInterval(() => {
+  const now = TODAY();
+  if (now !== lastDate) {
+    lastDate = now;
+    state.viewingDate = now;
+    loadDashboard();
+    render();
+  }
+}, 30000);
+
+// ==================== UTILS ====================
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), 2000);
+}
+function showLoading() {
+  document.getElementById('cardContent').innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:12px;">加载中...</p></div>';
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
